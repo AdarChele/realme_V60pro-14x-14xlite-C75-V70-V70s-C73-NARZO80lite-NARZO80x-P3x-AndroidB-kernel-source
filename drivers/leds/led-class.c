@@ -56,7 +56,7 @@ static ssize_t brightness_store(struct device *dev,
 	if (state == LED_OFF)
 		led_trigger_remove(led_cdev);
 	led_set_brightness(led_cdev, state);
-	flush_work(&led_cdev->set_brightness_work);
+	/*flush_work(&led_cdev->set_brightness_work);*/
 
 	ret = size;
 unlock:
@@ -235,7 +235,6 @@ struct led_classdev *of_led_get(struct device_node *np, int index)
 
 	led_dev = class_find_device_by_of_node(leds_class, led_node);
 	of_node_put(led_node);
-	put_device(led_dev);
 
 	if (!led_dev)
 		return ERR_PTR(-EPROBE_DEFER);
