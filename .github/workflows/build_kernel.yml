@@ -1,112 +1,42 @@
-name: Kernel Source Butcher
+name: Kernel Build
 
 on:
+  workflow_dispatch:
   push:
-    branches: [ main, master, fix-* ]
-  workflow_dispatch: # because you're not a coward
-
-permissions:
-  contents: write  # for releases, obviously
 
 jobs:
-  defconfig-and-zip:
+  build:
     runs-on: ubuntu-latest
-    concurrency:
-      group: kernel-gen-${{ github.ref }}
-      cancel-in-progress: true
 
     steps:
-    - name: Checkout your broken masterpiece
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 1  # you don't need history, you need results
+      - name: Checkout kernel source
+        uses: actions/checkout@v4
 
-    - name: Install packages like a grownup
-      run: |
-        sudo apt update
-        sudo apt install -y \
-          bc \
-          bison \
-          build-essential \
-          curl \
-          flex \
-          gcc \
-          git \
-          libelf-dev \
-          libssl-dev \
-          lz4 \
-          make \
-          openssl \
-          python3 \
-          rsync \
-          wget \
-          xz-utils \
-          zstd
-     - name: Install Lolz Clang
-     run: |
-        wget -O lolz-clang.tar.zst \
-          https://github.com/LzK/lolz-clang/releases/latest/download/lolz-clang.tar.zst
-        mkdir -p /opt/lolz
-        tar -xf lolz-clang.tar.zst -C /opt/lolz
-        echo "/opt/lolz/bin" >> $GITHUB_PATH
-        
-        # Set environment so make shuts up
-        echo "CC=clang" >> $GITHUB_ENV
-        echo "LD=ld.lld" >> $GITHUB_ENV
-        echo "LLVM=1" >> $GITHUB_ENV
-        echo "LLVM_IAS=1" >> $GITHUB_ENV
-        
-        # Verify or die trying
-        /opt/lolz/bin/clang --version | head -1 || exit 1
+      - name: Install deps
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            build-essential clang llvm \
+            bc flex bison \
+            libssl-dev libelf-dev \
+            libncurses-dev \
+            ccache git zip
 
-    - name: Generate defconfig (sane by default, lean by force)
-      run: |
-        # Your arch might vary - I'm assuming arm64 because you have taste
-        make ARCH=arm64 \
-             O=out \
-             defconfig
-        
-        # Optional: trim the fat - comment if you're squeamish
-        make ARCH=arm64 \
-             O=out \
-             LLVM=1 \
-             olddefconfig
+      - name: Setup clang
+        run: |
+          git clone --depth=1 https://gitlab.com/Jprimero15/lolz_clang.git -b main clang
 
-    - name: Find and zip every config like a digital archaeologist
-      run: |
-        mkdir -p config-artifacts
-        
-        # The .config itself (the holy grail)
-        cp out/.config config-artifacts/config-current || true
-        
-        # Any defconfig fragments the OEM scattered like breadcrumbs
-        find arch/ -name "*defconfig" -o -name "*config" 2>/dev/null | \
-          xargs -r cp -t config-artifacts/ || true
-        
-        # Bonus: kernel version header if it exists
-        cp include/config/kernel.release config-artifacts/ 2>/dev/null || true
-        
-        # Zip everything - name includes timestamp so you don't get confused
-        TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-        zip -r "kernel-configs-${TIMESTAMP}.zip" config-artifacts/
+      - name: Build kernel
+        run: |
+          export PATH="$PWD/clang/bin:$PATH"
+          make O=out ARCH=arm64 defconfig
+          make -j$(nproc --all) \
+            O=out \
+            ARCH=arm64 \
+            LLVM=1 LLVM_IAS=1
 
-    - name: Push to Releases (because artifacts expire like milk)
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: config-snap-${{ github.run_number }}
-        name: "Kernel Configs - Run ${{ github.run_number }}"
-        body: |
-          Generated from commit: ${{ github.sha }}
-          Branch: ${{ github.ref_name }}
-          Timestamp: $(date -u)
-          
-          **What's inside:**
-          - `.config` from defconfig
-          - All discovered defconfig fragments
-          - Because your OEM can't organize headers, I organized your configs
-        files: |
-          kernel-configs-*.zip
-        draft: false
-        prerelease: true  # mark as prerelease until you verify it doesn't explode
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload Image
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-image
+          path: out/arch/arm64/boot/*
