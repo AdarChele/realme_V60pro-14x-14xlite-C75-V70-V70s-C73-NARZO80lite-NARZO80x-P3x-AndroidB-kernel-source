@@ -31,7 +31,7 @@ jobs:
           grep -rn "config OPLUS_FEATURE_PERFORMANCE_MM" --include="Kconfig" . || echo "Not found in Kconfig"
     
           # Where is it set to 'y'?
-    echo -e "\n=== WHERE IT'S SET TO 'y' ==="
+          echo -e "\n=== WHERE IT'S SET TO 'y' ==="
           grep -rn "OPLUS_FEATURE_PERFORMANCE_MM=y" --include="*.config" --include="defconfig" --include="*_defconfig" . || echo "Not force-enabled in defconfigs"
     
           # Where is it used in C code?
