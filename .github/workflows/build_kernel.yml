@@ -44,7 +44,6 @@ jobs:
           zstd
      - name: Install Lolz Clang
      run: |
-        # Latest Lolz - bleeding edge or nothing
         wget -O lolz-clang.tar.zst \
           https://github.com/LzK/lolz-clang/releases/latest/download/lolz-clang.tar.zst
         mkdir -p /opt/lolz
