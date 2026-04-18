@@ -1,0 +1,6 @@
+# Dummy stub for missing Oplus memory config
+# This file intentionally left blank
+
+menu "Oplus MM (stub)"
+    comment "Stubbed out missing vendor configs"
+endmenu
