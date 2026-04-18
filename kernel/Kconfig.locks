@@ -260,4 +260,4 @@ config MMIOWB
 	def_bool y if ARCH_HAS_MMIOWB
 	depends on SMP
 
-source "kernel/locking/oplus_locking/Kconfig"
+# removed: source "kernel/locking/oplus_locking/Kconfig"
