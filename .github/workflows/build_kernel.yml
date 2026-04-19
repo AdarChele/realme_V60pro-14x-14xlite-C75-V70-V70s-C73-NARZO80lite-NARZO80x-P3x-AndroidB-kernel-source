@@ -38,8 +38,7 @@ jobs:
           echo -e "\n=== CODE REFERENCES ==="
           grep -rn "6835" --include="*.c" --include="*.h" . | head -20 || echo "No code references found"
 
-      - name: Checkout kernel source
-      - name: Merge GKI + 6853v1 and capture configs
+     - name: Merge GKI + 6853v1 and capture configs
         run: |
           echo "🔧 Building merged config for 6853v1..."
           
