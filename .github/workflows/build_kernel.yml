@@ -21,24 +21,13 @@ jobs:
             libssl-dev libelf-dev \
             libncurses-dev \
             ccache git zip
-      
-      - name: Hunt OPLUS symbols like a bloodhound
-        run: |
-          echo "🔍 Scanning for OPLUS_FEATURE_PERFORMANCE_MM references..."
-    
-          # Where is it defined?
-          echo "=== DEFINITIONS ==="
-          grep -rn "6835" --include="Kconfig" . || echo "Not found in Kconfig"
-    
-          # Where is it in the repo?
-          echo -e "\n=== WHERE IT'S MENTIONED ==="
-          grep -rn "6835" --include="*.config" --include="defconfig" --include="*_defconfig" . || echo "Not force-enabled in defconfigs"
-    
-          # Where is it used in C code?
-          echo -e "\n=== CODE REFERENCES ==="
-          grep -rn "6835" --include="*.c" --include="*.h" . | head -20 || echo "No code references found"
 
-     - name: Merge GKI + 6853v1 and capture configs
+      - name: Setup clang
+        run: |
+          git clone --depth=1 https://gitlab.com/Jprimero15/lolz_clang.git -b main clang
+          export PATH="$PWD/clang/bin:$PATH"
+          
+      - name: Merge GKI + 6853v1 and capture configs
         run: |
           echo "🔧 Building merged config for 6853v1..."
           
@@ -103,10 +92,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
 
-      - name: Setup clang
-        run: |
-          git clone --depth=1 https://gitlab.com/Jprimero15/lolz_clang.git -b main clang
-          export PATH="$PWD/clang/bin:$PATH"
       - name: Build kernel
         run: |
           make -j$(nproc --all) \
