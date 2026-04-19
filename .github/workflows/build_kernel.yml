@@ -25,11 +25,75 @@ jobs:
       - name: Setup clang
         run: |
           git clone --depth=1 https://gitlab.com/Jprimero15/lolz_clang.git -b main clang
+          export PATH="$PWD/clang/bin:$PATH"
+          
+      - name: Merge GKI + 6853v1 and capture configs
+        run: |
+          echo "🔧 Building merged config for 6853v1..."
+          
+          # Create build output directory
+          mkdir -p config_artifacts
+          
+          # Step 1: GKI base
+          make ARCH=arm64 gki_defconfig
+          
+          # Step 2: Merge 6853v1 fragment
+          make ARCH=arm64 k6853v1_64_gki_defconfig
+          
+          # Step 3: Save the merged config
+          cp .config config_artifacts/config_gki_6853v1_merged
+          
+          # Step 4: Also save the fragment by itself (for reference)
+          if [ -f arch/arm64/configs/k6853v1_64_gki_defconfig ]; then
+            cp arch/arm64/configs/k6853v1_64_gki_defconfig config_artifacts/
+          fi
+          
+          # Step 5: Save the GKI base too (for comparison)
+          make ARCH=arm64 gki_defconfig
+          cp .config config_artifacts/config_gki_base
+          
+          # Step 6: Generate human-readable diff
+          echo "=== DIFF: GKI base vs merged ===" > config_artifacts/merge_diff.txt
+          diff config_artifacts/config_gki_base config_artifacts/config_gki_6853v1_merged >> config_artifacts/merge_diff.txt 2>&1
+          
+          # Step 7: Count what changed
+          echo -e "\n=== SUMMARY ===" >> config_artifacts/merge_diff.txt
+          CHANGED=$(diff config_artifacts/config_gki_base config_artifacts/config_gki_6853v1_merged | grep "^[<>] CONFIG" | wc -l)
+          echo "Config options changed: $CHANGED" >> config_artifacts/merge_diff.txt
+          
+          # Step 8: Zip it all
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          zip -r "kernel_configs_6853v1_${TIMESTAMP}.zip" config_artifacts/
+          
+          echo "✅ Config package ready: kernel_configs_6853v1_${TIMESTAMP}.zip"
+      
+      - name: Upload to Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: config-merge-${{ github.run_number }}
+          name: "6853v1 Merged Configs - Run ${{ github.run_number }}"
+          body: |
+            **What's inside:**
+            - `config_gki_base` - Pure GKI defconfig
+            - `k6853v1_64_gki_defconfig` - The fragment (original)
+            - `config_gki_6853v1_merged` - **YOUR ACTUAL BUILD CONFIG**
+            - `merge_diff.txt` - Line-by-line what changed
+            
+            **Merge stats:**
+            - GKI base: $(wc -l < config_gki_base) options
+            - Merged: $(wc -l < config_gki_6853v1_merged) options
+            - Delta: See diff file
+            
+            **Next step:** Use `config_gki_6853v1_merged` as your `.config` and build.
+          files: |
+            kernel_configs_6853v1_*.zip
+          draft: false
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
 
       - name: Build kernel
         run: |
-          export PATH="$PWD/clang/bin:$PATH"
-          make O=out ARCH=arm64 defconfig
           make -j$(nproc --all) \
             O=out \
             ARCH=arm64 \
